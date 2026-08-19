@@ -25,7 +25,7 @@ spec:
             - name: BACKEND_FUTUREKAWA_URL
               value: "http://futurekawa-backend:8002"
             - name: ODOO_DB
-              value: "futurekawa"
+              value: "odoo_db"
             - name: ODOO_USERNAME
               value: "admin"
             - name: ODOO_API_KEY
