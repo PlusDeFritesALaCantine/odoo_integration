@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: futurekawa-sync-job
+  namespace: futurekawa-app
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: sync-script
+            image: TON_REGISTRY/TON_IMAGE_BACKEND:latest
+            command: ["python", "scripts/sync.py"]
+            envFrom:
+            - secretRef:
+                name: backend-secrets
+          restartPolicy: OnFailure
