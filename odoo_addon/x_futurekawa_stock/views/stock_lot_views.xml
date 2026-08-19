@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_stock_lot_form_x_futurekawa" model="ir.ui.view">
+        <field name="name">stock.lot.form.x.futurekawa</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="FutureKawa" name="x_futurekawa">
+                    <group>
+                        <group string="Origine">
+                            <field name="x_futurekawa_lot_id" readonly="1"/>
+                            <field name="x_futurekawa_pays" readonly="1"/>
+                            <field name="x_futurekawa_exploitation" readonly="1"/>
+                            <field name="x_futurekawa_entrepot_id" readonly="1"/>
+                            <field name="x_futurekawa_date_stockage" readonly="1"/>
+                        </group>
+                        <group string="Suivi qualité">
+                            <field name="x_futurekawa_statut"/>
+                            <field name="x_futurekawa_derniere_temperature" readonly="1"/>
+                            <field name="x_futurekawa_derniere_humidite" readonly="1"/>
+                            <field name="x_futurekawa_derniere_mesure_le" readonly="1"/>
+                            <field name="x_futurekawa_derniere_sync_le" readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

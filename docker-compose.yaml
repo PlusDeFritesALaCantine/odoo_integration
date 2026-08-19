@@ -1,0 +1,55 @@
+services:
+  # Instance Odoo locale (Community 17.0) + sa base dédiée : permet de démontrer
+  # toute la chaîne (backend_futurekawa -> ce service -> Odoo) sans dépendre d'un
+  # compte Odoo.com externe. En production, ces deux services seraient remplacés
+  # par l'URL/DB/API key d'une instance Odoo déjà hébergée (voir .env.example).
+  odoo_db:
+    image: postgres:15
+    container_name: odoo-db
+    environment:
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+      - POSTGRES_DB=postgres
+    volumes:
+      - odoo_db_data:/var/lib/postgresql/data
+    networks:
+      - odoo-network
+
+  odoo:
+    image: odoo:17.0
+    container_name: odoo-erp
+    depends_on:
+      - odoo_db
+    environment:
+      - HOST=odoo_db
+      - USER=odoo
+      - PASSWORD=odoo
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo_data:/var/lib/odoo
+      # Le module custom (odoo_addon/x_futurekawa_stock) devient /mnt/extra-addons/x_futurekawa_stock,
+      # inclus automatiquement dans l'addons-path par l'entrypoint de l'image officielle.
+      - ./odoo_addon:/mnt/extra-addons
+    networks:
+      - odoo-network
+
+  odoo_integration_futurekawa:
+    build: .
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    depends_on:
+      - odoo
+    networks:
+      - odoo-network
+    restart: unless-stopped
+
+networks:
+  odoo-network:
+    driver: bridge
+
+volumes:
+  odoo_db_data:
+  odoo_data:
