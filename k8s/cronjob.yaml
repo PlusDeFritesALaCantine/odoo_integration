@@ -33,6 +33,4 @@ spec:
             - name: ODOO_DRY_RUN
               value: "false"
             envFrom:
-            - secretRef:
-                name: backend-secrets
           restartPolicy: OnFailure
