@@ -32,5 +32,4 @@ spec:
               value: "admin"
             - name: ODOO_DRY_RUN
               value: "false"
-            envFrom:
           restartPolicy: OnFailure
