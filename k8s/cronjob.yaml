@@ -12,7 +12,7 @@ spec:
         spec:
           containers:
           - name: sync-script
-            image: TON_REGISTRY/TON_IMAGE_BACKEND:latest
+            image: ghcr.io/plusdefritesalacantine/odoo_integration:latest
             command: ["python", "scripts/sync.py"]
             envFrom:
             - secretRef:
