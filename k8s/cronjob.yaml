@@ -1,19 +1,37 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: futurekawa-sync-job
+  name: odoo-sync-job
   namespace: futurekawa-app
 spec:
   schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
   jobTemplate:
     spec:
       template:
         spec:
+          imagePullSecrets:
+          - name: ghcr-secret
           containers:
           - name: sync-script
             image: ghcr.io/plusdefritesalacantine/odoo_integration:latest
-            command: ["python", "scripts/sync.py"]
+            imagePullPolicy: Always
+            command: ["python", "-m", "app.sync"]
+            env:
+            - name: ODOO_URL
+              value: "http://odoo-service:8069"
+            - name: BACKEND_FUTUREKAWA_URL
+              value: "http://futurekawa-backend:8002"
+            - name: ODOO_DB
+              value: "futurekawa"
+            - name: ODOO_USERNAME
+              value: "admin"
+            - name: ODOO_API_KEY
+              value: "admin"
+            - name: ODOO_DRY_RUN
+              value: "false"
             envFrom:
             - secretRef:
                 name: backend-secrets
