@@ -192,11 +192,33 @@ def _sync_lot(odoo, lot, idx, product_id, dry_run, activity_user_id, result: Pay
         return 
 
     signature = alert_signature(lot, idx)
+    
+    # 1. Si aucune alerte n'est présente sur le lot, réinitialiser la signature
     if signature is None:
         _derniere_alerte_notifiee.pop(key, None)
+        logger.info("Aucune alerte active pour le lot %s", key)
         return
+
+    # 2. Vérification en mémoire (pendant le même processus)
     if _derniere_alerte_notifiee.get(key) == signature:
+        logger.info("Alerte déjà traitée en mémoire pour le lot %s", key)
         return
+
+    if odoo_lot_id and not dry_run:
+        messages = odoo.search_read(
+            "mail.message",
+            [
+                ["model", "=", "stock.lot"],
+                ["res_id", "=", odoo_lot_id],
+                ["body", "ilike", signature],
+            ],
+            ["id"],
+            limit=1,
+        )
+        if messages:
+            _derniere_alerte_notifiee[key] = signature
+            logger.info("Alerte '%s' déjà enregistrée sur Odoo pour le lot %s — passage ignoré.", signature, key)
+            return
 
     if dry_run:
         logger.info("[DRY-RUN] noterait l'alerte sur le lot %s : %s", key, signature)
