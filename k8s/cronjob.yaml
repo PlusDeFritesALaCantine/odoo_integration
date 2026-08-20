@@ -20,6 +20,8 @@ spec:
             imagePullPolicy: Always
             command: ["python", "-m", "app.sync"]
             env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
             - name: ODOO_URL
               value: "http://odoo-service:8069"
             - name: BACKEND_FUTUREKAWA_URL
