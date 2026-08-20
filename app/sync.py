@@ -226,3 +226,12 @@ def _sync_lot(odoo, lot, idx, product_id, dry_run, activity_user_id, result: Pay
         result.activites_planifiees += 1
 
     _derniere_alerte_notifiee[key] = signature
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    report_result = run_sync()
+    logger.info("Rapport de synchronisation : %s", report_result)
