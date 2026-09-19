@@ -12,6 +12,8 @@ et pousse les données vers Odoo via XML-RPC.
 ## Ce que fait ce module
 
 - Réplique chaque lot FutureKawa dans Odoo comme un `stock.lot` traçable.
+- **Remonte en sens inverse** les corrections saisies dans l'ERP (exploitation, entrepôt,
+  date de stockage), avec arbitrage par horodatage — voir ci-dessous.
 - Synchronise le statut du lot (`conforme` / `en_alerte` / `perime`).
 - Poste une note dans le chatter du lot à chaque alerte qualité, et planifie une
   activité Odoo pour les cas sévères (lot périmé, mesure "critique").
@@ -34,6 +36,32 @@ Seul un **addon Odoo minimal** (`odoo_addon/x_futurekawa_stock/`) reste nécessa
 dans les deux approches : Odoo n'a pas nativement de champs pour stocker le pays
 d'origine, le statut qualité FutureKawa ou les dernières mesures IoT. Cet addon
 n'ajoute aucun nouveau modèle, seulement des champs sur `stock.lot`.
+
+## Les deux sens de synchronisation
+
+La synchronisation n'allait que de FutureKawa vers Odoo : une correction saisie dans l'ERP
+(mauvaise exploitation, lot déplacé d'entrepôt) était **écrasée au cycle suivant** par la
+valeur FutureKawa. Une passe descendante la précède désormais.
+
+| | |
+|---|---|
+| **Qui fait foi ?** | arbitrage par horodatage. Si `write_date` dépasse `x_futurekawa_derniere_sync_le` de plus de 5 s, la dernière main est humaine et **Odoo gagne** ; sinon c'est notre propre écriture et **FutureKawa gagne** |
+| **Sur quels champs ?** | `x_futurekawa_exploitation`, `x_futurekawa_entrepot_id`, `x_futurekawa_date_stockage`. **Jamais** le statut ni les relevés (dérivés), ni le pays ni l'identifiant (ils portent la correspondance entre les deux systèmes) |
+| **Dans quel ordre ?** | descendante **avant** montante. Sinon la passe montante réécrirait l'ancienne valeur dans la foulée et la correction humaine ferait un aller-retour pour rien |
+| **Un lot créé dans Odoo ?** | ignoré. La création reste du ressort de FutureKawa ; Odoo est un miroir enrichi, pas une source. Rien n'est supprimé non plus |
+| **Un champ vidé dans Odoo ?** | non propagé : on ne remonte pas un effacement |
+| **En cas d'échec ?** | consigné dans `PaysSyncResult.erreurs`, le cycle va jusqu'au bout |
+
+**Pourquoi 5 secondes de marge ?** Notre propre `write` met aussi `write_date` à jour. Sans
+tolérance, chaque lot poussé serait aussitôt considéré comme modifié dans Odoo et repartirait
+en sens inverse à chaque cycle.
+
+Les remontées sont comptées dans `lots_remontes` du rapport de synchro
+(`GET /sync/last-report`). En `dry_run`, elles sont comptées mais aucune écriture n'a lieu.
+
+Fonctions concernées, toutes pures et testables sans Odoo :
+`mapping.modifie_dans_odoo`, `mapping.champs_a_remonter`, `mapping.decoder_business_key`.
+
 
 ## Mapping des données
 
@@ -184,7 +212,11 @@ uvicorn app.main:app --reload --port 8003
 
 Voir `.env.example` pour la liste complète et les valeurs par défaut.
 
-## Tests manuels
+## Tests
+
+51 tests, dont 16 sur la passe descendante (arbitrage, champs remontés, absence de PATCH inutile).
+
+ manuels
 
 ```bash
 # valider la configuration sans rien écrire dans Odoo

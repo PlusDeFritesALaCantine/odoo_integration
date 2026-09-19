@@ -11,6 +11,9 @@ from . import config
 from .futurekawa_client import FuturekawaClient
 from .mapping import (
     alert_signature,
+    champs_a_remonter,
+    decoder_business_key,
+    modifie_dans_odoo,
     build_chatter_body,
     build_lot_vals,
     index_alertes,
@@ -32,6 +35,7 @@ class PaysSyncResult:
     status: str = "ok"
     lots_crees: int = 0
     lots_mis_a_jour: int = 0
+    lots_remontes: int = 0
     messages_postes: int = 0
     activites_planifiees: int = 0
     alertes_canal: int = 0
@@ -158,6 +162,17 @@ def _sync_pays(fk_client, odoo, pays, product_id, dry_run, activity_user_id) -> 
         result.status = "indisponible"
         return result
 
+    # Sens descendant d'abord : une correction faite dans Odoo doit être reprise
+    # dans FutureKawa AVANT que la passe montante ne réécrive l'enregistrement,
+    # sinon on écraserait la saisie humaine à chaque cycle.
+    lots_par_id = {lot["id"]: lot for lot in lots}
+    try:
+        _sync_descendante(fk_client, odoo, pays, lots_par_id, dry_run, result)
+    except (OdooConnectionError, OdooRpcError, httpx.HTTPError) as exc:
+        message = f"Remontée Odoo -> FutureKawa ({pays}) : {exc}"
+        logger.error(message)
+        result.erreurs.append(message)
+
     idx = index_alertes(alertes)
     for lot in lots:
         try:
@@ -167,6 +182,64 @@ def _sync_pays(fk_client, odoo, pays, product_id, dry_run, activity_user_id) -> 
             logger.error(message)
             result.erreurs.append(message)
     return result
+
+
+CHAMPS_LUS_POUR_REMONTEE = [
+    "x_futurekawa_lot_id",
+    "x_futurekawa_exploitation",
+    "x_futurekawa_entrepot_id",
+    "x_futurekawa_date_stockage",
+    "x_futurekawa_derniere_sync_le",
+    "write_date",
+]
+
+
+def _sync_descendante(fk_client, odoo, pays, lots_par_id, dry_run, result: PaysSyncResult) -> None:
+    """Odoo -> FutureKawa : remonte les corrections saisies dans l'ERP.
+
+    Ne remonte que les enregistrements dont write_date dépasse notre dernière
+    écriture (cf. mapping.modifie_dans_odoo) et dont au moins un champ diffère
+    réellement : sans ces deux filtres, chaque cycle enverrait un PATCH par lot.
+
+    Les lots présents dans Odoo mais inconnus de FutureKawa sont ignorés : la
+    création de lot reste du ressort de FutureKawa, Odoo n'est qu'un miroir
+    enrichi. Les supprimer côté Odoo serait destructif, on préfère les laisser.
+    """
+    if not lots_par_id:
+        return
+
+    records = odoo.search_read(
+        "stock.lot",
+        [["x_futurekawa_pays", "=", pays]],
+        CHAMPS_LUS_POUR_REMONTEE,
+    )
+
+    for record in records:
+        decode = decoder_business_key(record.get("x_futurekawa_lot_id") or "")
+        if decode is None:
+            continue
+        _, lot_id = decode
+        lot = lots_par_id.get(lot_id)
+        if lot is None:
+            continue
+        if not modifie_dans_odoo(record):
+            continue
+
+        ecart = champs_a_remonter(record, lot)
+        if not ecart:
+            continue
+
+        if dry_run:
+            logger.info("[dry-run] Remontée %s:%s -> %s", pays, lot_id, ecart)
+            result.lots_remontes += 1
+            continue
+
+        fk_client.patch_lot(pays, lot_id, ecart)
+        # La passe montante qui suit doit repartir des valeurs à jour, sinon elle
+        # réécrirait immédiatement l'ancienne valeur dans Odoo.
+        lot.update(ecart)
+        result.lots_remontes += 1
+        logger.info("Remontée Odoo -> FutureKawa : %s:%s %s", pays, lot_id, ecart)
 
 
 def _sync_lot(odoo, lot, idx, product_id, dry_run, activity_user_id, result: PaysSyncResult) -> None:

@@ -7,7 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from .schemas import SyncReportOut
-from odoo.app.sync import run_sync
+# Dépôt autonome : le paquet s'appelle `app`, pas `odoo.app`. L'ancien import
+# supposait l'arborescence de backend_futurekawa et faisait planter le conteneur
+# au démarrage (ModuleNotFoundError: No module named 'odoo'), alors même que
+# l'image se construisait et que les 35 tests passaient.
+from app.sync import run_sync
 
 logger = logging.getLogger(__name__)
 

@@ -8,6 +8,7 @@ class PaysSyncResultOut(BaseModel):
     status: str
     lots_crees: int
     lots_mis_a_jour: int
+    lots_remontes: int = 0
     messages_postes: int
     activites_planifiees: int
     erreurs: list[str]

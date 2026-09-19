@@ -20,3 +20,17 @@ class FuturekawaClient:
 
     def fetch_alertes(self, pays: str) -> dict:
         return self._get(f"/pays/{pays}/alertes")
+
+    def patch_lot(self, pays: str, lot_id: str, champs: dict) -> dict:
+        """Remonte vers FutureKawa une correction faite dans Odoo.
+
+        PATCH et non PUT : l'API pays fusionne les champs fournis (exclude_unset)
+        au lieu de remplacer le lot. Envoyer un PUT partiel viderait les champs
+        absents de la charge utile.
+        """
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.patch(
+                f"{self.base_url}/pays/{pays}/lots/{lot_id}", json=champs
+            )
+            response.raise_for_status()
+            return response.json()
