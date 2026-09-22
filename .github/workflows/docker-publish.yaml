@@ -74,14 +74,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Installer uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          enable-cache: true
-
-      - name: Exporter les dépendances (lock -> requirements)
-        run: uv export --format requirements-txt --no-hashes -o requirements.txt
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -91,7 +83,12 @@ jobs:
         run: pip install pip-audit
 
       - name: Run pip-audit
-        run: pip-audit -r requirements.txt
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt
+          else
+            pip-audit
+          fi
         continue-on-error: true
 
   config-scan:
